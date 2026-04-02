@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Chat Secreto 🔒 | WebRTC + AES-256</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 1000px;
+            background: rgba(30, 30, 46, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+        .header {
+            background: #1e293b;
+            padding: 1rem 1.8rem;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(120deg, #a5f3fc, #c084fc);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .status {
+            background: #0f172a;
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            font-family: monospace;
+        }
+        .screen {
+            padding: 1.8rem;
+        }
+        .card {
+            background: #0f172a;
+            border-radius: 1.5rem;
+            padding: 1.8rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            color: #cbd5e1;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            display: block;
+            font-size: 0.85rem;
+        }
+        input, textarea {
+            width: 100%;
+            background: #1e293b;
+            border: 1px solid #475569;
+            padding: 0.8rem 1rem;
+            border-radius: 1rem;
+            color: #f1f5f9;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
+        }
+        button {
+            background: #4f46e5;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            color: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #6366f1;
+            transform: scale(0.98);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #4f46e5;
+            color: #a5b4fc;
+        }
+        .btn-outline:hover {
+            background: #4f46e5;
+            color: white;
+        }
+        .flex-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .key-box {
+            background: #020617;
+            padding: 0.8rem;
+            border-radius: 1rem;
+            font-family: monospace;
+            word-break: break-all;
+            font-size: 0.9rem;
+            color: #e2e8f0;
+            border: 1px solid #334155;
+            margin: 10px 0;
+        }
+        .copy-btn {
+            background: #334155;
+            padding: 0.3rem 0.9rem;
+            font-size: 0.7rem;
+            border-radius: 1rem;
+            margin-left: 8px;
+        }
+        .warning {
+            color: #facc15;
+            font-size: 0.75rem;
+            margin-top: 8px;
+        }
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            background: #0f172a;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .message {
+            background: #1e293b;
+            padding: 0.7rem 1rem;
+            border-radius: 1.2rem;
+            max-width: 85%;
+            align-self: flex-start;
+            border-left: 3px solid #4f46e5;
+        }
+        .message.own {
+            align-self: flex-end;
+            background: #2d3a5e;
+            border-left-color: #c084fc;
+        }
+        .msg-name {
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #a5f3fc;
+            margin-bottom: 0.2rem;
+        }
+        .msg-text {
+            color: #e2e8f0;
+            word-wrap: break-word;
+        }
+        .msg-time {
+            font-size: 0.6rem;
+            color: #94a3b8;
+            text-align: right;
+            margin-top: 4px;
+        }
+        .system-msg {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            background: #0f172a;
+            padding: 0.3rem;
+            border-radius: 20px;
+            width: 80%;
+            margin: 0 auto;
+        }
+        .input-message {
+            display: flex;
+            gap: 0.8rem;
+            background: #1e293b;
+            padding: 0.8rem;
+            border-radius: 3rem;
+        }
+        .input-message input {
+            background: #0f172a;
+            margin: 0;
+        }
+        .room-info {
+            background: #1e293b;
+            border-radius: 1rem;
+            padding: 0.7rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .hidden {
+            display: none;
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4f46e5;
+            border-radius: 10px;
+        }
+    </style>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<div class="app-container" id="app">
+    <div class="header">
+        <h1>🔐 CHAT SECRETO · P2P + AES</h1>
+        <div class="status" id="connStatus">⚡ Desconectado</div>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="loginScreen" class="screen">
+        <div class="card">
+            <h2 style="color:#e2e8f0; margin-bottom: 1rem;">✨ Entre no mundo secreto</h2>
+            <div class="input-group">
+                <label>👤 Seu nome (apelido)</label>
+                <input type="text" id="userNameInput" placeholder="Ex: AgenteX, Lince, Aurora" maxlength="25">
+            </div>
+            <div class="flex-row" style="justify-content: space-between; margin-top: 10px;">
+                <button id="createRoomBtn">➕ Criar nova sala secreta</button>
+                <button id="joinRoomBtn" class="btn-outline">🔑 Entrar com chave</button>
+            </div>
+            <div class="warning">🔒 Criptografia AES-256-GCM. A chave NUNCA sai do seu navegador.</div>
+        </div>
+    </div>
+
+    <!-- TELA CRIAR SALA (mostra ID + chave) -->
+    <div id="createRoomScreen" class="screen hidden">
+        <div class="card">
+            <h3 style="color:#e2e8f0;">🔐 Sua Sala Secreta foi criada!</h3>
+            <div class="key-box">
+                <strong>🆔 ID da Sala (compartilhe):</strong> <span id="roomIdDisplay"></span>
+                <button id="copyRoomIdBtn" class="copy-btn">Copiar</button>
+            </div>
+            <div class="key-box">
+                <strong>🔑 CHAVE CRIPTOGRÁFICA (compartilhe com segurança):</strong><br>
+                <span id="roomKeyDisplay" style="font-size: 0.9rem;"></span>
+                <button id="copyKeyBtn" class="copy-btn">Copiar chave</button>
+            </div>
+            <div class="warning">⚠️ Envie ID e chave para quem quiser entrar. Sem a chave, ninguém lê as mensagens.</div>
+            <button id="enterCreatedRoomBtn" style="margin-top: 1rem;">➡️ Entrar no chat secreto</button>
+        </div>
+    </div>
+
+    <!-- TELA ENTRAR COM CHAVE -->
+    <div id="joinRoomScreen" class="screen hidden">
+        <div class="card">
+            <h3 style="color:#e2e8f0;">🔓 Entrar em sala secreta</h3>
+            <div class="input-group">
+                <label>🆔 ID da Sala</label>
+                <input type="text" id="joinRoomId" placeholder="Ex: A7B9C2D1">
+            </div>
+            <div class="input-group">
+                <label>🔑 Chave de criptografia</label>
+                <input type="text" id="joinRoomKey" placeholder="Chave base64...">
+            </div>
+            <div class="flex-row">
+                <button id="confirmJoinBtn">🔓 Entrar na sala</button>
+                <button id="backToLoginBtn" class="btn-outline">Voltar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA PRINCIPAL DO CHAT -->
+    <div id="chatScreen" class="screen hidden">
+        <div class="room-info">
+            <span>🏠 Sala: <strong id="chatRoomIdLabel"></strong></span>
+            <span>👤 Você: <strong id="chatUserNameLabel"></strong></span>
+            <button id="leaveChatBtn" class="copy-btn" style="background:#dc2626;">Sair da sala</button>
+        </div>
+        <div class="chat-area">
+            <div id="messagesContainer" class="messages">
+                <div class="system-msg">⚡ Aguardando conexão P2P...</div>
+            </div>
+            <div class="input-message">
+                <input type="text" id="messageInput" placeholder="Digite mensagem secreta... (criptografada)" autocomplete="off">
+                <button id="sendMsgBtn">📤 Enviar</button>
+            </div>
+        </div>
+        <div class="warning" style="margin-top: 10px; text-align:center;">🔒 Tudo que você escreve é criptografado antes de sair.</div>
+    </div>
+</div>
+
+<script>
+    // ------------------- CRIPTOGRAFIA AES-GCM -------------------
+    async function generateRandomKey() {
+        const keyBytes = crypto.getRandomValues(new Uint8Array(32));
+        return arrayBufferToBase64(keyBytes);
+    }
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary);
+    }
+    function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+        return bytes.buffer;
+    }
+    async function importKey(base64Key) {
+        const keyData = base64ToArrayBuffer(base64Key);
+        return await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    }
+    async function encryptMessage(keyBase64, plaintext) {
+        const key = await importKey(keyBase64);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encoder = new TextEncoder();
+        const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, encoder.encode(plaintext));
+        const combined = new Uint8Array(iv.length + encrypted.byteLength);
+        combined.set(iv);
+        combined.set(new Uint8Array(encrypted), iv.length);
+        return arrayBufferToBase64(combined);
+    }
+    async function decryptMessage(keyBase64, encryptedBase64) {
+        try {
+            const key = await importKey(keyBase64);
+            const combined = new Uint8Array(base64ToArrayBuffer(encryptedBase64));
+            const iv = combined.slice(0, 12);
+            const ciphertext = combined.slice(12);
+            const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ciphertext);
+            return new TextDecoder().decode(decrypted);
+        } catch(e) { return null; }
+    }
+
+    // Gera ID aleatório (6 caracteres)
+    function generateRoomId() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    // ------------------- ESTADO GLOBAL -------------------
+    let currentUser = { name: "", roomId: "", encryptionKey: "" };
+    let peer = null;            // instância PeerJS
+    let connections = [];       // lista de conexões (para o host)
+    let isHost = false;         // true = criador da sala (hub)
+    let myPeerId = null;        // id do peer atual (aleatório se não for host)
+    let currentScreen = "login";
+
+    // Elementos DOM
+    const loginScreen = document.getElementById('loginScreen');
+    const createRoomScreen = document.getElementById('createRoomScreen');
+    const joinRoomScreen = document.getElementById('joinRoomScreen');
+    const chatScreen = document.getElementById('chatScreen');
+    const connStatusSpan = document.getElementById('connStatus');
+    const userNameInput = document.getElementById('userNameInput');
+    const createRoomBtn = document.getElementById('createRoomBtn');
+    const joinRoomBtn = document.getElementById('joinRoomBtn');
+    const backToLoginBtn = document.getElementById('backToLoginBtn');
+    const confirmJoinBtn = document.getElementById('confirmJoinBtn');
+    const enterCreatedRoomBtn = document.getElementById('enterCreatedRoomBtn');
+    const roomIdDisplay = document.getElementById('roomIdDisplay');
+    const roomKeyDisplay = document.getElementById('roomKeyDisplay');
+    const copyRoomIdBtn = document.getElementById('copyRoomIdBtn');
+    const copyKeyBtn = document.getElementById('copyKeyBtn');
+    const joinRoomIdInput = document.getElementById('joinRoomId');
+    const joinRoomKeyInput = document.getElementById('joinRoomKey');
+    const chatRoomIdLabel = document.getElementById('chatRoomIdLabel');
+    const chatUserNameLabel = document.getElementById('chatUserNameLabel');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageInput = document.getElementById('messageInput');
+    const sendMsgBtn = document.getElementById('sendMsgBtn');
+    const leaveChatBtn = document.getElementById('leaveChatBtn');
+
+    function showScreen(screenName) {
+        loginScreen.classList.add('hidden');
+        createRoomScreen.classList.add('hidden');
+        joinRoomScreen.classList.add('hidden');
+        chatScreen.classList.add('hidden');
+        if (screenName === 'login') loginScreen.classList.remove('hidden');
+        else if (screenName === 'createRoom') createRoomScreen.classList.remove('hidden');
+        else if (screenName === 'joinRoom') joinRoomScreen.classList.remove('hidden');
+        else if (screenName === 'chat') chatScreen.classList.remove('hidden');
+        currentScreen = screenName;
+    }
+
+    function addMessageToChat(senderName, text, isOwn = false, timestamp = null) {
+        const time = timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${isOwn ? 'own' : ''}`;
+        msgDiv.innerHTML = `<div class="msg-name">${escapeHtml(senderName)}</div><div class="msg-text">${escapeHtml(text)}</div><div class="msg-time">${time}</div>`;
+        messagesContainer.appendChild(msgDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        const sysMsg = messagesContainer.querySelector('.system-msg');
+        if (sysMsg && messagesContainer.children.length > 1) sysMsg.remove();
+    }
+    function addSystemMessage(text) {
+        const sysDiv = document.createElement('div');
+        sysDiv.className = 'system-msg';
+        sysDiv.innerText = text;
+        messagesContainer.appendChild(sysDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    function escapeHtml(str) { return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+
+    // Enviar mensagem criptografada para todos os pares (se host, reencaminha; se cliente, envia apenas para o host)
+    async function sendEncryptedMessage() {
+        const rawText = messageInput.value.trim();
+        if (!rawText) return;
+        const payload = { name: currentUser.name, text: rawText, timestamp: new Date().toLocaleTimeString() };
+        const encrypted = await encryptMessage(currentUser.encryptionKey, JSON.stringify(payload));
+        if (isHost) {
+            // host: envia para todos os clientes conectados (exceto a si mesmo)
+            for (let conn of connections) {
+                if (conn.open) conn.send({ type: 'msg', data: encrypted });
+            }
+        } else {
+            // cliente: envia para o host (única conexão)
+            if (connections[0] && connections[0].open) connections[0].send({ type: 'msg', data: encrypted });
+        }
+        // exibir na própria tela
+        addMessageToChat(currentUser.name, rawText, true, payload.timestamp);
+        messageInput.value = '';
+    }
+
+    // Processar mensagem recebida (descriptografar e exibir)
+    async function processReceivedMessage(encryptedData) {
+        const decryptedJson = await decryptMessage(currentUser.encryptionKey, encryptedData);
+        if (decryptedJson) {
+            try {
+                const { name, text, timestamp } = JSON.parse(decryptedJson);
+                const isOwn = (name === currentUser.name);
+                addMessageToChat(name, text, isOwn, timestamp);
+            } catch(e) { addSystemMessage("⚠️ Mensagem inválida."); }
+        } else {
+            addSystemMessage("🔐 Falha na descriptografia: chave incorreta.");
+        }
+    }
+
+    // Configurar peer (host ou cliente)
+    function initPeer(isHostMode, roomIdForHost = null, roomKey = null) {
+        if (peer) peer.destroy();
+        const options = { debug: 0 };
+        if (isHostMode && roomIdForHost) {
+            // Host: usa o ID da sala como peer ID (fixo)
+            peer = new Peer(roomIdForHost, options);
+            myPeerId = roomIdForHost;
+        } else {
+            // Cliente: gera ID aleatório
+            peer = new Peer(options);
+        }
+        peer.on('open', id => {
+            connStatusSpan.innerHTML = isHostMode ? `🟢 Host ativo (${id})` : `🟢 Conectado (${id})`;
+            connStatusSpan.style.color = '#4ade80';
+            if (!isHostMode && !isHost) {
+                // cliente: conectar ao host (roomId)
+                const targetId = currentUser.roomId;
+                const conn = peer.connect(targetId);
+                conn.on('open', () => {
+                    addSystemMessage(`✅ Conectado à sala ${targetId}.`);
+                    connections.push(conn);
+                    setupConnectionEvents(conn);
+                    // enviar nome para o host (handshake)
+                    conn.send({ type: 'handshake', name: currentUser.name });
+                });
+                conn.on('error', err => addSystemMessage(`Erro de conexão: ${err}`));
+            }
+        });
+        peer.on('connection', conn => {
+            if (isHostMode) {
+                // host aceita novas conexões
+                connections.push(conn);
+                setupConnectionEvents(conn);
+                addSystemMessage(`👤 Novo participante conectado.`);
+                // avisar o novo cliente que está pronto (opcional)
+                conn.send({ type: 'welcome', msg: 'Conectado ao hub secreto' });
+            }
+        });
+        peer.on('error', err => {
+            console.error(err);
+            addSystemMessage(`Erro PeerJS: ${err.type || err}`);
+            connStatusSpan.innerHTML = '🔴 Erro na conexão';
+        });
+        peer.on('disconnected', () => {
+            addSystemMessage("⚠️ Desconectado do servidor de signaling. Tentando reconectar...");
+            peer.reconnect();
+        });
+    }
+
+    function setupConnectionEvents(conn) {
+        conn.on('data', async data => {
+            if (data.type === 'msg') {
+                await processReceivedMessage(data.data);
+            } else if (data.type === 'handshake' && isHost) {
+                // cliente enviou seu nome – podemos armazenar (apenas para log)
+                addSystemMessage(`✨ ${data.name} entrou na sala secreta.`);
+                // reenviar handshake para todos? não necessário
+            } else if (data.type === 'welcome') {
+                addSystemMessage(`🔓 ${data.msg}`);
+            }
+        });
+        conn.on('close', () => {
+            const idx = connections.indexOf(conn);
+            if (idx !== -1) connections.splice(idx, 1);
+            addSystemMessage(`🚪 Um participante saiu da sala.`);
+        });
+    }
+
+    // Criar nova sala (host)
+    async function createNewRoom() {
+        const name = userNameInput.value.trim();
+        if (!name) { alert("Digite seu nome."); return; }
+        currentUser.name = name;
+        const newRoomId = generateRoomId();
+        const newKey = await generateRandomKey();
+        currentUser.roomId = newRoomId;
+        currentUser.encryptionKey = newKey;
+        roomIdDisplay.innerText = newRoomId;
+        roomKeyDisplay.innerText = newKey;
+        showScreen('createRoom');
+    }
+
+    // Host entra no chat (após criar sala)
+    function enterAsHost() {
+        if (!currentUser.roomId || !currentUser.encryptionKey) return;
+        isHost = true;
+        initPeer(true, currentUser.roomId);
+        chatRoomIdLabel.innerText = currentUser.roomId;
+        chatUserNameLabel.innerText = currentUser.name;
+        showScreen('chat');
+        messagesContainer.innerHTML = '<div class="system-msg">🔒 Você é o HOST da sala. Compartilhe ID e chave para outros entrarem.</div>';
+        addSystemMessage(`Sala ${currentUser.roomId} ativa. Aguardando conexões...`);
+    }
+
+    // Entrar como cliente (com ID e chave)
+    async function joinWithKey() {
+        const name = userNameInput.value.trim();
+        if (!name) { alert("Defina seu nome."); return; }
+        const roomId = joinRoomIdInput.value.trim().toUpperCase();
+        const key = joinRoomKeyInput.value.trim();
+        if (!roomId || !key) { alert("Preencha ID e chave."); return; }
+        // testar chave
+        try { await importKey(key); } catch(e) { alert("Chave inválida!"); return; }
+        currentUser.name = name;
+        currentUser.roomId = roomId;
+        currentUser.encryptionKey = key;
+        isHost = false;
+        initPeer(false);
+        chatRoomIdLabel.innerText = roomId;
+        chatUserNameLabel.innerText = name;
+        showScreen('chat');
+        messagesContainer.innerHTML = '<div class="system-msg">🔓 Conectando à sala secreta...</div>';
+    }
+
+    function leaveChat() {
+        if (peer) peer.destroy();
+        connections = [];
+        isHost = false;
+        currentUser = { name: "", roomId: "", encryptionKey: "" };
+        showScreen('login');
+        userNameInput.value = "";
+        joinRoomIdInput.value = "";
+        joinRoomKeyInput.value = "";
+        connStatusSpan.innerHTML = '⚡ Desconectado';
+        connStatusSpan.style.color = '#94a3b8';
+    }
+
+    // Event listeners
+    copyRoomIdBtn.addEventListener('click', () => { navigator.clipboard.writeText(roomIdDisplay.innerText); alert("ID copiado!"); });
+    copyKeyBtn.addEventListener('click', () => { navigator.clipboard.writeText(roomKeyDisplay.innerText); alert("Chave copiada!"); });
+    createRoomBtn.addEventListener('click', createNewRoom);
+    joinRoomBtn.addEventListener('click', () => {
+        const name = userNameInput.value.trim();
+        if (!name) { alert("Digite seu nome primeiro."); return; }
+        currentUser.name = name;
+        showScreen('joinRoom');
+    });
+    backToLoginBtn.addEventListener('click', () => showScreen('login'));
+    confirmJoinBtn.addEventListener('click', joinWithKey);
+    enterCreatedRoomBtn.addEventListener('click', enterAsHost);
+    sendMsgBtn.addEventListener('click', sendEncryptedMessage);
+    messageInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendEncryptedMessage(); });
+    leaveChatBtn.addEventListener('click', () => { if (confirm("Sair da sala secreta?")) leaveChat(); });
+</script>
+</body>
+</html>
